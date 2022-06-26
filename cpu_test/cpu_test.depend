@@ -1,0 +1,13 @@
+# depslib dependency file v1.0
+1653835358 source:c:\c_code\sdl\projects\emulators\gameboy_emulator\cpu_test\cpu.c
+	<stdio.h>
+	<stdlib.h>
+	"cpu.h"
+
+1648896104 c:\c_code\sdl\projects\emulators\gameboy_emulator\cpu_test\cpu.h
+
+1653835379 source:c:\c_code\sdl\projects\emulators\gameboy_emulator\cpu_test\main.c
+	<stdio.h>
+	<stdlib.h>
+	"cpu.h"
+
