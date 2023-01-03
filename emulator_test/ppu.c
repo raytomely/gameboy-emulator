@@ -3,7 +3,7 @@
 
 int ppu_cycles = 0, last_ppu_mode = 0, line_rendered = 0, frame_rendered = 0;
 int old_time = 0,  actual_time = 0;
-unsigned char LY, LYC, SCX, SCY;
+unsigned char LY, LYC, SCX, SCY, WX, WY;
 int tile_map, tile_data, tile_number;
 Uint32 gb_colors[4] = {0xe0f8d0, 0x88c070, 0x346856, 0x081820};
 SDL_Event event;
@@ -160,17 +160,27 @@ void draw_background_tile(unsigned char *tile_address, SDL_Surface *surface, int
 }
 
 
-void draw_half_background_tile(unsigned char *tile_address, SDL_Surface *surface, int x, int y, unsigned char palette, unsigned char x_offset)
+void draw_half_background_tile(unsigned char *tile_address, SDL_Surface *surface, int x, int y, unsigned char palette, unsigned char x_offset, unsigned char y_offset)
 {
-    int i, j, k = 0, j_start = 0, j_end = 8;
+    int i, j, k = 0, i_start = 0, i_end = 8, j_start = 0, j_end = 8;
     unsigned char byte1, byte2, pixel;
 
     if (x <= 0)
         j_start = x_offset;
-    else
-        j_end = x_offset;
+    else if ((x + 8) > 160)
+        j_end = 8 - x_offset;
 
-    for (i = 0; i < 8; i ++)
+    if (y <= 0)
+    {
+        i_start = y_offset;
+        tile_address += y_offset * 2;
+        k = y_offset;
+    }
+    else if ((y +  8) > 144)
+        i_end = 8 - y_offset;
+
+
+    for (i = i_start; i < i_end; i ++)
     {
         byte1 = tile_address[0] << j_start;
         byte2 = tile_address[1] << j_start;
@@ -200,33 +210,36 @@ void draw_half_background_tile(unsigned char *tile_address, SDL_Surface *surface
         }
         k++;
     }
-
 }
 
 
 void draw_sprite_tile(unsigned char *tile_address, SDL_Surface *surface, int x, int y, unsigned char palette, int flip)
 {
-    int i, j, k, j_start ,j_increment, j_threshold, k_increment;
-    int x_offset = (x < 0) ? -x : 0;
+    int i, j, k = 0, j_start = 0, j_increment = 0, j_threshold = 0, k_increment = 0;
+    int left_x_offset = (x < 0) ? -x : 0;
+    int right_x_offset = ((x + 8) > 160) ? (x + 8) - 160 : 0;
+    int i_start = (y < 0) ? -y : 0;
+    int i_end = ((y + 8) > 144) ? 144 - y : 8;
     unsigned char byte1, byte2, pixel;
+    tile_address += 2 * i_start;
 
     switch (flip)
     {
         case 0:  // no flip
-            j_start = 0 + x_offset; j_increment = 1; j_threshold = 8; k = 0; k_increment = 1;
+            j_start = 0 + left_x_offset; j_increment = 1; j_threshold = 8 - right_x_offset; k = 0; k_increment = 1;
             break;
         case 1:  // x flip
-            j_start = 7; j_increment = -1; j_threshold = -1 + x_offset; k = 0; k_increment = 1;
+            j_start = 7 - right_x_offset; j_increment = -1; j_threshold = -1 + left_x_offset; k = 0; k_increment = 1;
             break;
         case 2:  // y flip
-            j_start = 0 + x_offset; j_increment = 1;  j_threshold = 8; k = 7; k_increment = -1;
+            j_start = 0 + left_x_offset; j_increment = 1;  j_threshold = 8; k = 7; k_increment = -1;
             break;
         case 3:  // x and y flip
-            j_start = 7; j_increment = -1; j_threshold = -1 + x_offset; k = 7; k_increment = -1;
+            j_start = 7 - right_x_offset; j_increment = -1; j_threshold = -1 + left_x_offset; k = 7; k_increment = -1;
             break;
     }
 
-    for (i = 0; i < 8; i ++)
+    for (i = i_start; i < i_end; i ++)
     {
         byte1 = tile_address[0];
         byte2 = tile_address[1];
@@ -316,7 +329,7 @@ void draw_background(CPU *cpu, SDL_Surface *surface)
 
 void draw_scrolling_background(CPU *cpu, SDL_Surface *surface)
 {
-    int tile_map, tile_data, i, j, k = 0, x = 0, y = 0, x_offset, tile_offset;
+    int tile_map, tile_data, i, j, k = 0, x = 0, y = 0, x_offset, y_offset, tile_offset;
     tile_map = (((cpu->memory[0xff40] >> 3) & 1) == 1) ? 0x9c00 : 0x9800;
     tile_data = (((cpu->memory[0xff40] >> 4) & 1) == 1) ? 0x8000 : 0x8800;
 
@@ -324,19 +337,19 @@ void draw_scrolling_background(CPU *cpu, SDL_Surface *surface)
     SCX = cpu->memory[0xff43];
     SCY = cpu->memory[0xff42];
     tile_offset = SCX / 8;
+    k = (SCY / 8) * 32;
     x_offset = SCX % 8;
+    y_offset = SCY % 8;
     x -= x_offset;
+    y -= y_offset;
 
-    for (i = 0; i < 18; i++)
+    for (i = 0; i < 18 + (y_offset != 0); i++)
     {
         for (j = 0; j < 20 + (x_offset != 0); j++)
         {
-            //if (SCX >= 104)
             if ((tile_offset + j) > 31)
             {
-                //tile_number = cpu->memory[tile_map + j + k - 32];
                 tile_number = cpu->memory[tile_map + k + ((tile_offset + j) % 32)];
-                //printf("tile_map= 0x%04x j= %d k= %d t= 0x%04x \n\n", tile_map + j + k, j, k, 0x9800 + k + ((SCX / 8 + j) % 32));
             }
             else
                 tile_number = cpu->memory[tile_map + j + k + tile_offset];
@@ -350,15 +363,15 @@ void draw_scrolling_background(CPU *cpu, SDL_Surface *surface)
                 tile_address = &cpu->memory[0x9000+((char)tile_number*16)];
             }
 
-            if (j == 0 || j == 20)
-                draw_half_background_tile(tile_address, surface, x, y, cpu->memory[0xff47], x_offset);
+            if (x < 0 || x + 8 > 160 || y < 0 || y + 8 > 144)
+                draw_half_background_tile(tile_address, surface, x, y, cpu->memory[0xff47], abs(x) % 8, abs(y) % 8);
             else
                 draw_background_tile(tile_address, surface, x, y, cpu->memory[0xff47]);
             x += 8;
         }
         x = 0 - x_offset;
         y += 8;
-        k += 32;
+        k = (k + 32) % 1024; // 31 * 32 == 992;
     }
 }
 
@@ -371,11 +384,12 @@ void draw_sprites(CPU *cpu, SDL_Surface *surface)
     {
         y = cpu->memory[i]-16;
         x = cpu->memory[i+1]-8;
+        if ((x + 8) < 0 || (x > 160) || (y + 16) < 0 || (y > 144))
+            continue;
         tile_number = cpu->memory[i+2];
         palette = (cpu->memory[i+3] & 16) ? cpu->memory[0xff49] : cpu->memory[0xff48];
         flip = (cpu->memory[i+3] >> 5) & 3;
 
-        //if (x>0 && y>0)
         if(cpu->memory[0xff40] & 0x04)
         {
             draw_sprite_tile(&cpu->memory[0x8000+((tile_number & 0xfe)*16)], surface, x, y, palette, flip);
@@ -386,13 +400,94 @@ void draw_sprites(CPU *cpu, SDL_Surface *surface)
             draw_sprite_tile(&cpu->memory[0x8000+(tile_number*16)], surface, x, y, palette, flip);
         }
     }
+}
 
+
+void draw_window_old(CPU *cpu, SDL_Surface *surface)
+{
+    int tile_map, tile_data, i, x = 0, y = 0;
+    tile_map = (((cpu->memory[0xff40] >> 6) & 1) == 1) ? 0x9c00 : 0x9800;
+    tile_data = (((cpu->memory[0xff40] >> 4) & 1) == 1) ? 0x8000 : 0x8800;
+
+    unsigned char tile_number, *tile_address = NULL;
+    WX = cpu->memory[0xff4b];
+    WY = cpu->memory[0xff4a];
+    x = WX - 7;
+    y = WY;
+
+    for (i = 0; i < 1024; i++)
+    {
+        tile_number = cpu->memory[tile_map + i];
+
+        if (tile_data == 0x8000)
+        {
+            tile_address = &cpu->memory[0x8000+(tile_number*16)];
+        }
+        else if (tile_data == 0x8800)
+        {
+            tile_address = &cpu->memory[0x9000+((char)tile_number*16)];
+        }
+
+        if (x >= 0 && y >= 0 && x < 160 && y < 144)
+            draw_background_tile(tile_address, surface, x, y, cpu->memory[0xff47]);
+        x += 8;
+        if (x >= 256)
+        {
+            x = 0;
+            y += 8;
+        }
+    }
+}
+
+
+void draw_window(CPU *cpu, SDL_Surface *surface)
+{
+    int tile_map, tile_data, i, j, x = 0, y = 0;
+    int x_start, x_end, y_start, y_end;
+    tile_map = (((cpu->memory[0xff40] >> 6) & 1) == 1) ? 0x9c00 : 0x9800;
+    tile_data = (((cpu->memory[0xff40] >> 4) & 1) == 1) ? 0x8000 : 0x8800;
+
+    unsigned char tile_number, *tile_address = NULL;
+    WX = cpu->memory[0xff4b];
+    WY = cpu->memory[0xff4a];
+    x = WX - 7;
+    y = WY;
+
+    x_start = 0;
+    x_end = (160 - abs(x)) / 8 + (x % 8 != 0);
+    y_start = 0;
+    y_end = (144 - abs(y)) / 8 + (y % 8 != 0);
+
+    for (i = y_start; i < y_end; i++)
+    {
+        for (j = x_start; j < x_end; j++)
+        {
+            tile_number = cpu->memory[tile_map + j + i*32];
+
+            if (tile_data == 0x8000)
+            {
+                tile_address = &cpu->memory[0x8000+(tile_number*16)];
+            }
+            else if (tile_data == 0x8800)
+            {
+                tile_address = &cpu->memory[0x9000+((char)tile_number*16)];
+            }
+
+            if (x < 0 || x + 8 > 160 || y < 0 || y + 8 > 144)
+                draw_half_background_tile(tile_address, surface, x, y, cpu->memory[0xff47], abs(x) % 8, abs(y) % 8);
+            else
+                draw_background_tile(tile_address, surface, x, y, cpu->memory[0xff47]);
+            x += 8;
+        }
+        x = WX - 7;
+        y += 8;
+    }
 }
 
 
 void draw_scanline(CPU *cpu, SDL_Surface *surface, int y)
 {
-    int tile_map, tile_data, i, j, x, y_offset, x_offset, tile_offset;
+    int tile_map, tile_data, i, j, k, x, y_offset, x_offset, tile_offset;
     int j_start = 0, j_end = 8;
     unsigned char tile_number, *tile_address = NULL;
     unsigned char byte1, byte2, pixel, palette = cpu->memory[0xff47];
@@ -400,19 +495,22 @@ void draw_scanline(CPU *cpu, SDL_Surface *surface, int y)
     tile_map = (((cpu->memory[0xff40] >> 3) & 1) == 1) ? 0x9c00 : 0x9800;
     tile_data = (((cpu->memory[0xff40] >> 4) & 1) == 1) ? 0x8000 : 0x8800;
     x = 0;
-    y_offset = (y % 8) * 2;
     SCX = cpu->memory[0xff43];
+    SCY = cpu->memory[0xff42];
+    y_offset = ((y + SCY) % 8) * 2;
     tile_offset = SCX / 8;
+    k = (((SCY+y) / 8) * 32)%1024;
     x_offset = SCX % 8;
     x -= x_offset;
+    //printf("y_offset=%d yoff=%d k=%d yt=%d y=%d scy=%d\n",y_offset/2,(SCY+y)%8,k/32,y/8,y,SCY);
 
     for (i = 0; i < 20 + (x_offset != 0); i++)
     {
 
         if ((tile_offset + i) > 31)
-            tile_number = cpu->memory[tile_map + ((y / 8) * 32) + ((tile_offset + i)% 32)];
+            tile_number = cpu->memory[tile_map + k + ((tile_offset + i)% 32)];
         else
-            tile_number = cpu->memory[tile_map + i + ((y / 8) * 32) + tile_offset];
+            tile_number = cpu->memory[tile_map + i + k + tile_offset];
 
         if (tile_data == 0x8000)
         {
@@ -531,6 +629,8 @@ void update_ppu(CPU *cpu, int cycles)
 			//draw_frame(cpu, surface);
 			//SDL_FillRect(screen, NULL, 0XFFFFFF);
             //draw_scrolling_background(cpu, screen);
+            if ((cpu->memory[0xff40] >> 5) & 1)
+                draw_window(cpu, screen);
             draw_sprites(cpu, screen);
             SDL_BlitSurface(viewport, NULL, screen, &viewport_pos);
 			SDL_Flip(screen);
@@ -582,7 +682,6 @@ void update_ppu(CPU *cpu, int cycles)
 		cpu->memory[0xff44] = 0;
 		frame_rendered = 0;
     }
-
 }
 
 

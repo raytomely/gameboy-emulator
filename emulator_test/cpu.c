@@ -8,8 +8,8 @@ int cpu_emulation(CPU *cpu)
 {
     unsigned char *opcode = &cpu->memory[cpu->pc];
     int cycles = 1;//printf("opcode = 0x%02x  pc= %d 0x%04x \n\n",*opcode,cpu->pc,cpu->pc);
-    if (cpu->pc > 0x00)//((cpu->h<<8) | cpu->l)<0x8A00)
-    /*{
+    /*if (cpu->pc > 0x00)//((cpu->h<<8) | cpu->l)<0x8A00)
+    {
         if (*opcode == 0xcb)
             fprintf(stdout, "opcode = 0xcb= 0x%02x  pc= %d 0x%04x \n\n",opcode[1],cpu->pc,cpu->pc);
         else

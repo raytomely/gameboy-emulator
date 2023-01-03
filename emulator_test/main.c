@@ -52,10 +52,13 @@ int main(int argc, char *argv[])
 
     int cycles = 0; // cycles_counter = 0, cycles_per_frame = 69905;
     CPU cpu;
+    memset(cpu.memory, 0, sizeof(cpu.memory));
     cpu_init(&cpu);
 	cpu.memory[0xff44] = 0x90;  //	does this break stuff? is it needed for some games?
     //load_rom(&cpu, "rom/Dr. Mario (World).gb"); //cpu.pc=0;
-    load_mbc_rom(&cpu, "rom/Super Mario Land (World).gb");
+    //load_mbc_rom(&cpu, "rom/Super Mario Land (World).gb");
+    load_mbc_rom(&cpu, "rom/Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev A).gb");
+    load_sram(&cpu, "rom/zelda.sram");
     //load_nintindo_logo(&cpu);
 
 
@@ -126,6 +129,7 @@ int main(int argc, char *argv[])
 
     }
 
+    //save_sram(&cpu, "rom/zelda.sram");
     SDL_FreeSurface(bmpSample); /* free the surface */
     //SDL_FreeSurface(display_surface);
     SDL_FreeSurface(viewport);
@@ -155,7 +159,7 @@ void pause()
 void update_timer(CPU *cpu, int cycles)
 {
     //  increment divider
-	divider_clock += cycles;
+	divider_clock += cycles/4;
 	if (divider_clock >= 256)
     {
 		divider_clock -= 256;

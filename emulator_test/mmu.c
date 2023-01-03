@@ -2,8 +2,6 @@
 #include "cpu.h"
 #include "mmu.h"
 
-
-
 unsigned char rom[0xFA000];
 unsigned char romtype = 0x00;
 
@@ -127,13 +125,13 @@ unsigned char read_input(unsigned char val)
     if ((val & 0x30) == 0x10)
     {
         joypad |= keys[SDLK_a]  |  keys[SDLK_t] ? 0 : 1;
-        joypad |= (keys[SDLK_s] ? 0 : 1) << 1;
-        joypad |= (keys[SDLK_x] ? 0 : 1) << 2;
-        joypad |= (keys[SDLK_z] ? 0 : 1) << 3;
+        joypad |= (keys[SDLK_s] |  keys[SDLK_t] ? 0 : 1) << 1;
+        joypad |= (keys[SDLK_x] |  keys[SDLK_t] ? 0 : 1) << 2;
+        joypad |= (keys[SDLK_z] |  keys[SDLK_t] ? 0 : 1) << 3;
     }
     else if ((val & 0x30) == 0x20)
     {
-        joypad |= keys[SDLK_RIGHT] |  keys[SDLK_t] ? 0 : 1;
+        joypad |= keys[SDLK_RIGHT] ? 0 : 1;
         joypad |= (keys[SDLK_LEFT] ? 0 : 1) << 1;
         joypad |= (keys[SDLK_UP] ? 0 : 1) << 2;
         joypad |= (keys[SDLK_DOWN] ? 0 : 1) << 3;
@@ -200,5 +198,27 @@ void load_nintindo_logo(CPU *cpu)
     {
         cpu->memory[0x104+i] = cpu->memory[0xa8+i];
     }
+}
+
+
+void save_sram(CPU *cpu, char filename[])
+{
+    FILE* file = fopen(filename, "wb" );
+    fwrite(&cpu->memory[0xA000], sizeof(unsigned char), sizeof(unsigned char) * 0x2000, file);
+    fclose(file);
+}
+
+
+void load_sram(CPU *cpu, char filename[])
+{
+    FILE* file = fopen(filename, "rb" );
+    int pos = 0;
+    while (pos < 0x2000)
+    {
+		fread(&cpu->memory[0xA000 + pos], sizeof(unsigned char), 1, file);
+		pos++;
+    }
+    //fread(&cpu->memory[0xA000], sizeof(unsigned char), sizeof(unsigned char) * 0x2000, file);
+    fclose(file);
 }
 
