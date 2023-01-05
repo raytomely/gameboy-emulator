@@ -221,21 +221,39 @@ void draw_sprite_tile(unsigned char *tile_address, SDL_Surface *surface, int x, 
     int i_start = (y < 0) ? -y : 0;
     int i_end = ((y + 8) > 144) ? 144 - y : 8;
     unsigned char byte1, byte2, pixel;
-    tile_address += 2 * i_start;
 
     switch (flip)
     {
         case 0:  // no flip
-            j_start = 0 + left_x_offset; j_increment = 1; j_threshold = 8 - right_x_offset; k = 0; k_increment = 1;
+            j_start = 0 + left_x_offset; j_increment = 1;
+            j_threshold = 8 - right_x_offset;
+            k = 0 + i_start;
+            k_increment = 1;
+            tile_address += 2 * i_start;
             break;
         case 1:  // x flip
-            j_start = 7 - right_x_offset; j_increment = -1; j_threshold = -1 + left_x_offset; k = 0; k_increment = 1;
+            j_start = 7 - right_x_offset;
+            j_increment = -1;
+            j_threshold = -1 + left_x_offset;
+            k = 0 + i_start;
+            k_increment = 1;
+            tile_address += 2 * i_start;
             break;
         case 2:  // y flip
-            j_start = 0 + left_x_offset; j_increment = 1;  j_threshold = 8; k = 7; k_increment = -1;
+            j_start = 0 + left_x_offset;
+            j_increment = 1;
+            j_threshold = 8;
+            k = i_end - 1;    // k = 7;
+            k_increment = -1;
+            tile_address += 2 * (8 - i_end);
             break;
         case 3:  // x and y flip
-            j_start = 7 - right_x_offset; j_increment = -1; j_threshold = -1 + left_x_offset; k = 7; k_increment = -1;
+            j_start = 7 - right_x_offset;
+            j_increment = -1;
+            j_threshold = -1 + left_x_offset;
+            k = i_end - 1;    // k = 7;
+            k_increment = -1;
+            tile_address += 2 * (8 - i_end);
             break;
     }
 

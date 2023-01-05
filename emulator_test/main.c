@@ -57,8 +57,8 @@ int main(int argc, char *argv[])
 	cpu.memory[0xff44] = 0x90;  //	does this break stuff? is it needed for some games?
     //load_rom(&cpu, "rom/Dr. Mario (World).gb"); //cpu.pc=0;
     //load_mbc_rom(&cpu, "rom/Super Mario Land (World).gb");
-    load_mbc_rom(&cpu, "rom/Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev A).gb");
-    load_sram(&cpu, "rom/zelda.sram");
+    load_mbc_rom(&cpu, "rom/Pokemon - Red Version (USA, Europe) (SGB Enhanced).gb");
+    //load_sram(&cpu, "rom/pokemon.sram", 1);
     //load_nintindo_logo(&cpu);
 
 
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
 
     }
 
-    //save_sram(&cpu, "rom/zelda.sram");
+    //save_sram(&cpu, "rom/pokemon.sram", 1);
     SDL_FreeSurface(bmpSample); /* free the surface */
     //SDL_FreeSurface(display_surface);
     SDL_FreeSurface(viewport);

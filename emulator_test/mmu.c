@@ -4,11 +4,22 @@
 
 unsigned char rom[0xFA000];
 unsigned char romtype = 0x00;
+unsigned char ram[0x10000];
 
 unsigned char mbc1romNumber = 1;
 unsigned char mbc1romMode = 0;
 unsigned char mbc1ramNumber =0;
 unsigned char mbc1ramEnabled = 0;
+
+uint8_t mbc2romNumber = 1;
+uint8_t mbc2romMode = 0;
+uint8_t mbc2ramNumber = 0;
+uint8_t mbc2ramEnabled = 0;
+
+uint8_t mbc3romNumber = 1;
+uint8_t mbc3romMode = 0;
+uint8_t mbc3ramNumber = 0;
+uint8_t mbc3ramEnabled = 0;
 
 unsigned char memory_read(CPU *cpu, unsigned short address)
 {
@@ -29,6 +40,44 @@ unsigned char memory_read(CPU *cpu, unsigned short address)
 		Uint32 target = (mbc1romNumber * 0x4000) + (address - 0x4000);
 		return rom[target];
     }
+    //	MBC2
+	else if (romtype == 0x02)
+    {
+		//	ROM banking
+		if (mbc2romNumber && (address >= 0x4000 && address < 0x8000))
+        {
+			Uint32 target = (mbc2romNumber * 0x4000) + (address - 0x4000);
+			return rom[target];
+		}
+		else
+			return cpu->memory[address];
+    }
+    //	MBC3
+	else if (romtype == 0x03)
+	{
+		//	ROM banking
+		if (mbc3romNumber && (address >= 0x4000 && address < 0x8000))
+		{
+			Uint32 target = (mbc3romNumber * 0x4000) + (address - 0x4000);
+			return rom[target];
+		}
+		//	RAM / RTC banking
+		else if (mbc3ramEnabled && mbc3ramNumber && (address >= 0xa000 && address < 0xc000))
+		{
+			//	RAM bank
+			if (mbc3ramNumber < 0x08)
+			{
+				return ram[mbc3ramNumber * address];
+			}
+			//	RTC register
+			else
+            {
+				printf("WARNING! Game tries to access unimplemented MBC3 RTC!!\n");
+			}
+		}
+		else
+			return cpu->memory[address];
+	}
 
     return cpu->memory[address];
 }
@@ -101,6 +150,66 @@ void memory_write(CPU *cpu, unsigned short address, unsigned char value)
 		else
 		{
             cpu->memory[address] = value;
+		}
+    }
+    //	MBC2
+	else if (romtype == 0x02)
+    {
+		//	external RAM enable / disable
+		if (address < 0x2000)
+		{
+			mbc2ramEnabled = value > 0;
+		}
+		//	choose ROM bank nr (lower 5 bits, 0-4)
+		else if (address < 0x4000)
+		{
+			mbc2romNumber = value & 0x1f;
+			if (value == 0x00 || value == 0x20 || value == 0x40 || value == 0x60)
+            {
+				mbc2romNumber = (value & 0x1f) + 1;
+				memcpy(&cpu->memory[0x4000], &rom[mbc2romNumber * 0x4000], 0x4000);
+            }
+		}
+		else
+		{
+			cpu->memory[address] = value;
+		}
+	}
+	//	MBC3
+	else if (romtype == 0x03)
+    {
+		//	external RAM enable / disable
+		if (address < 0x2000)
+        {
+			mbc3ramEnabled = value > 0;
+		}
+		//	choose ROM bank nr
+		else if (address < 0x4000)
+        {
+			mbc3romNumber = value;
+			if (value == 0x00)
+				mbc3romNumber = 0x01;
+            memcpy(&cpu->memory[0x4000], &rom[mbc3romNumber * 0x4000], 0x4000);
+		}
+		//	choose RAM bank nr OR RTC register (real time clock, for ingame cycles)
+		else if (address < 0x6000)
+        {
+			mbc3ramNumber = value;
+		}
+		//	TODO: latch clock delay
+		else if (address < 0x8000)
+        {
+            printf("watch\n");
+		}
+		//	write to RAM
+		else if (mbc3ramEnabled && mbc3ramNumber && (address >= 0xa000 && address < 0xc000))
+		{
+			ram[mbc3romNumber * address] = value;
+		}
+		//	any other write
+		else
+        {
+			cpu->memory[address] = value;
 		}
     }
 }
@@ -201,24 +310,32 @@ void load_nintindo_logo(CPU *cpu)
 }
 
 
-void save_sram(CPU *cpu, char filename[])
+void save_sram(CPU *cpu, char filename[], int sram_size_is_32k)
 {
     FILE* file = fopen(filename, "wb" );
-    fwrite(&cpu->memory[0xA000], sizeof(unsigned char), sizeof(unsigned char) * 0x2000, file);
+    if (sram_size_is_32k)
+        fwrite(ram, sizeof(unsigned char), sizeof(unsigned char) * 0x8000, file);
+    else
+        fwrite(&cpu->memory[0xA000], sizeof(unsigned char), sizeof(unsigned char) * 0x2000, file);
     fclose(file);
 }
 
 
-void load_sram(CPU *cpu, char filename[])
+void load_sram(CPU *cpu, char filename[], int sram_size_is_32k)
 {
     FILE* file = fopen(filename, "rb" );
-    int pos = 0;
-    while (pos < 0x2000)
+    if (sram_size_is_32k)
+        fread(ram, sizeof(unsigned char), sizeof(unsigned char) * 0x8000, file);
+    else
     {
-		fread(&cpu->memory[0xA000 + pos], sizeof(unsigned char), 1, file);
-		pos++;
-    }
+        int pos = 0;
+        while (pos < 0x2000)
+        {
+            fread(&cpu->memory[0xA000 + pos], sizeof(unsigned char), 1, file);
+            pos++;
+        }
     //fread(&cpu->memory[0xA000], sizeof(unsigned char), sizeof(unsigned char) * 0x2000, file);
+    }
     fclose(file);
 }
 

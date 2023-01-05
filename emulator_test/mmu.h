@@ -6,5 +6,5 @@ int load_rom(CPU *cpu, char* rom_name);
 void load_nintindo_logo(CPU *cpu);
 void rom_init(CPU *cpu);
 void load_mbc_rom(CPU *cpu, char* rom_name);
-void save_sram(CPU *cpu, char filename[]);
-void load_sram(CPU *cpu, char filename[]);
+void save_sram(CPU *cpu, char filename[], int sram_size_is_32k);
+void load_sram(CPU *cpu, char filename[], int sram_size_is_32k);
